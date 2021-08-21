@@ -1,0 +1,153 @@
+Public Sub NYitottListaExport()
+
+Call DisableStuff
+
+    Dim sws As Worksheet, dw As Workbook, wb As Long
+    Set sws = ThisWorkbook.Worksheets("ORDER")
+    wb = sws.Range("E1").Value
+    Set dw = Workbooks.Add: dw.SaveAs Filename:="C:\Users\cscsontos\Desktop\TömegesMentés\" & wb & ".xls"
+    
+    sws.Range("B2:U2").AutoFilter Field:=3, Criteria1:=wb
+    sws.Range("B2").CurrentRegion.Copy Destination:=dw.Worksheets(1).Range("A2")
+   
+    With dw.Worksheets(1)
+        .UsedRange.EntireColumn.AutoFit
+        .Range("A2").EntireRow.Delete
+        .Range("O:U").EntireColumn.Delete
+    End With
+    
+   Dim i As Long
+   Dim LastRow As Long
+   LastRow = dw.Sheets(1).Rows.Count
+
+   For i = 3 To LastRow
+        If Cells(i, 2).Value = "Firmed" Then
+            With Cells(i, 2).Offset(0, -1).Resize(1, 14)
+                .Interior.Color = RGB(255, 140, 0)
+                .Font.Bold = True
+            End With
+        End If
+   Next i
+   
+   Dim j As Long
+    For j = 3 To LastRow
+        If Cells(j, 1).Value = "BACKLOG" Then
+            With Cells(j, 1).Resize(1, 14)
+                .Interior.Color = vbRed
+                .Font.Bold = True
+            End With
+        End If
+    Next j
+
+    dw.Sheets(1).Range("A1").EntireRow.Delete
+    
+    With dw.Sheets(1).Range("A1:N1")
+       .Font.Color = vbWhite
+       .Font.Bold = True
+       .Interior.Color = vbBlue
+    End With
+        
+    ActiveWindow.DisplayGridlines = False
+    dw.Save
+    dw.Close
+    
+    sws.Range("B2:U2").AutoFilter
+    
+    Call EnableStuff
+ 
+End Sub
+
+Sub OrderSender()
+
+Dim sws As Worksheet
+Set sws = ThisWorkbook.Worksheets("ORDER")
+Dim besz As Long, engbody As String, hunbody As String, nyelv As String, megszólítás As String
+besz = sws.Range("E1").Value
+megszólítás = Application.WorksheetFunction.VLookup(besz, ThisWorkbook.Worksheets("törzsadat").Range("A1:F500"), 6, False)
+engbody = "Dear" & " " & megszólítás & "," & vbNewLine & vbNewLine & "Please find attached our new delivery schedule." & vbNewLine & vbNewLine & "Please send me confirmation about the next departure! " & vbNewLine & vbNewLine & "Thank you for your support." & vbNewLine & vbNewLine & "Best regards" & vbNewLine & "Csaba"
+hunbody = "Kedves" & " " & megszólítás & "," & vbNewLine & vbNewLine & "Mellékelve küldöm új ütemezésünket, ha látnak valami problémát kérem jelezzék nekem." & vbNewLine & vbNewLine & "Kérem visszaigazolásukat a következő szállításról! " & vbNewLine & vbNewLine & "Köszönöm előre is." & vbNewLine & vbNewLine & "Üdvözlettel" & vbNewLine & "Csaba"
+nyelv = Application.WorksheetFunction.VLookup(besz, ThisWorkbook.Worksheets("törzsadat").Range("A1:F500"), 3, False)
+
+Dim attachementPDF As String, attachementXLS As String, MailSubject As String
+attachementPDF = "C:\Users\cscsontos\Desktop\TömegesPDF\" & besz & ".pdf"
+attachementXLS = "C:\Users\cscsontos\Desktop\TömegesMentés\" & besz & ".xls"
+MailSubject = Date & " NEW SCHEDULE " & " " & WorksheetFunction.VLookup(besz, ThisWorkbook.Worksheets("törzsadat").Range("A1:F500"), 2, False)
+
+Dim OutlookApp As Object
+ Dim OutlookMail As Object
+ Set OutlookApp = CreateObject("Outlook.Application")
+ Set OutlookMail = OutlookApp.CreateItem(0)
+ On Error Resume Next
+ 
+   If nyelv = "EN" Then
+        With OutlookMail
+            .To = "csaba.csontos@haldex.com"
+            .CC = ""
+            .BCC = ""
+            .Subject = MailSubject
+            .Body = engbody
+            .attachments.Add attachementPDF
+            .attachments.Add attachementXLS
+            .Send
+        End With
+        
+    ElseIf nyelv = "HU" Then
+        With OutlookMail
+            .To = "csaba.csontos@haldex.com"
+            .CC = ""
+            .BCC = ""
+            .Subject = MailSubject
+            .Body = hunbody
+            .attachments.Add attachementPDF
+            .attachments.Add attachementXLS
+            .Send
+        End With
+    End If
+
+End Sub
+
+Public Sub MassExport()
+
+Dim answer As VbMsgBoxResult
+Dim start
+start = Timer
+
+    Call DisableStuff
+    
+    answer = MsgBox("Are you sure?", vbYesNo, "Confirm Action")
+    If answer = vbYes Then
+        
+        Worksheets("MassExport").UsedRange.ClearFormats
+        
+        For Each x In Worksheets("MassExport").UsedRange.Cells
+           Worksheets("order").Range("E1") = x.Value
+           NYitottListaExport
+        Next x
+        
+        MsgBox "Mentés kész!"
+        MsgBox WorksheetFunction.Round(Timer - start, 2) & "Sec"
+    Else
+        
+    End If
+    
+    Call EnableStuff
+
+End Sub
+
+Public Sub MassOrderMail()
+Call DisableStuff
+
+Dim start
+start = Timer
+
+Worksheets("MassExport").UsedRange.ClearFormats
+
+For Each x In Worksheets("MassExport").UsedRange.Cells
+   Worksheets("order").Range("E1") = x.Value
+   OrderSender
+Next x
+
+MsgBox WorksheetFunction.Round(Timer - start, 2) & "Sec"
+Call EnableStuff
+
+End Sub
