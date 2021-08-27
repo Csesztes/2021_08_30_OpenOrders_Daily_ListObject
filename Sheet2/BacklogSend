@@ -1,0 +1,148 @@
+Option Explicit
+
+Public Sub CreateBacklogFolder()
+
+On Error GoTo Leave:
+MkDir "C:\Users\cscsontos\Desktop\DATABASE_SETUP\DAILY_OPEN_ORDERS\BACKLOG" & "\" & Date
+MsgBox "Folder is created.", vbInformation
+Exit Sub
+Leave:
+    MsgBox "Folder alredy exists.", vbInformation
+End Sub
+
+Public Sub CreateBacklogXLS()
+Application.DisplayAlerts = False
+Application.ScreenUpdating = False
+
+Dim besz As Long
+besz = Sheet2.Range("E1").Value
+
+Dim BacklogWb As Workbook
+Set BacklogWb = Workbooks.Add
+BacklogWb.SaveAs ("C:\Users\cscsontos\Desktop\DATABASE_SETUP\DAILY_OPEN_ORDERS\BACKLOG" & "\" & Date & "\" & besz & ".xls")
+
+Dim MainWS As Worksheet
+Set MainWS = ThisWorkbook.Sheets("OpenOrders")
+
+With MainWS
+    .ListObjects("össz").HeaderRowRange.AutoFilter Field:=3, Criteria1:=besz
+    .ListObjects("össz").HeaderRowRange.AutoFilter Field:=1, Criteria1:="BACKLOG"
+    .ListObjects("össz").HeaderRowRange.Copy Destination:=BacklogWb.Sheets(1).Range("A1")
+    .ListObjects("össz").DataBodyRange.Copy Destination:=BacklogWb.Sheets(1).Range("A2")
+End With
+
+With BacklogWb
+    .Sheets(1).Range("O:V").Delete
+    .Sheets(1).UsedRange.EntireColumn.AutoFit
+    .Close (True)
+End With
+
+MainWS.ListObjects("össz").HeaderRowRange.AutoFilter
+MainWS.ListObjects("össz").HeaderRowRange.AutoFilter
+
+Set BacklogWb = Nothing
+Set MainWS = Nothing
+Application.DisplayAlerts = True
+Application.ScreenUpdating = True
+End Sub
+
+Public Sub MassCreateBacklogXLS()
+Application.DisplayAlerts = False
+Application.ScreenUpdating = False
+
+On Error GoTo Leave:
+
+Dim answer As VbMsgBoxResult
+answer = MsgBox("Would you like to send Backlog Mails?", vbYesNo + vbInformation, "Confirm Action")
+
+If answer = vbYes Then
+    Dim i As Long
+    i = 4
+   
+    Do While Sheet4.Range("B" & i).Value <> ""
+        Sheet2.Range("E1").Value = Sheet4.Range("B" & i).Value
+        Call CreateBacklogXLS
+        Call SendMassBacklog
+        i = i + 1
+    Loop
+    
+    MsgBox "Emails are sent.", vbInformation
+    Application.DisplayAlerts = True
+    Application.ScreenUpdating = True
+Else
+    MsgBox "Task is terminated.", vbInformation
+End If
+
+Application.DisplayAlerts = True
+Application.ScreenUpdating = True
+Exit Sub
+
+Leave:
+    MsgBox "Please create BACKLOG FOLDER first.", vbInformation
+End Sub
+
+Public Sub SendMassBacklog()
+
+Dim hunbody As String
+Dim engbody As String
+Dim megszólítás As String
+Dim SupplierLanguage As String
+Dim Recipient As String
+Dim BeszállítóMegnev As String
+Dim besz As Long
+besz = Sheet2.Range("E1").Value
+Dim Logshen As Workbook
+Dim LogshenPath As String
+LogshenPath = "K:\Logistics\#NEW FOLDER STRUCTURE\4. MATERIAL PLANNING\Schedule-master\log-schsen-master-readonly.xlsm"
+Set Logshen = Workbooks.Open(LogshenPath)
+Dim LogshenWs As Worksheet
+Set LogshenWs = Logshen.Sheets(1)
+Dim attachment As String
+attachment = "C:\Users\cscsontos\Desktop\DATABASE_SETUP\DAILY_OPEN_ORDERS\BACKLOG" & "\" & Date & "\" & besz & ".xls"
+
+SupplierLanguage = Application.WorksheetFunction.VLookup(besz, LogshenWs.Range("C$2:P$1000"), 3, 0)
+megszólítás = Application.WorksheetFunction.VLookup(besz, LogshenWs.Range("C$2:P$1000"), 4, 0)
+Recipient = Application.WorksheetFunction.VLookup(besz, LogshenWs.Range("C$2:P$1000"), 5, 0)
+BeszállítóMegnev = Application.WorksheetFunction.VLookup(besz, LogshenWs.Range("C$2:P$1000"), 2, 0)
+
+hunbody = "Kedves" & " " & megszólítás & "," & vbNewLine & vbNewLine & "Ez egy automata üzenet az elmaradásban lévő tételekről." _
+& vbNewLine & vbNewLine & "Kérem ellenőrizze és igazolja vissza az elmaradásban lévő rendeléseket." & vbNewLine & _
+"Amennyiben már megbeszéltük vagy az áru úton van, kérem tekintse semmisnek levelem." & vbNewLine & vbNewLine & "Válaszát előre is köszönöm." & _
+vbNewLine & vbNewLine & "Üdvözlettel:" & vbNewLine & "Csaba"
+
+engbody = "Dear" & " " & megszólítás & "," & vbNewLine & vbNewLine & "You may see an automatically generated backlog file attached." & vbNewLine & vbNewLine _
+& "If you have lines which are in backlog for more then a week, then please let me know ASAP about best eta and qt and the reason for the delay for each line." _
+& vbNewLine & "If we have discussed the backlogs already, or the goods are in transit, or the goods are already at Haldex but not booked yet, then please feel free toignore this mail." _
+& vbNewLine & vbNewLine & "Thank you in advance for your support." & vbNewLine & vbNewLine & "Best Regards" & vbNewLine & "Csaba"
+    
+ Dim OutlookApp As Object
+ Dim OutlookMail As Object
+ Set OutlookApp = CreateObject("Outlook.Application")
+ Set OutlookMail = OutlookApp.CreateItem(0)
+ On Error Resume Next
+
+  If SupplierLanguage = "EN" Then
+        With OutlookMail
+            .To = Recipient
+            '.To = "csaba.csontos@haldex.com"
+            .Subject = "Backlog" & " " & BeszállítóMegnev & " " & Date
+            .Body = engbody
+            .Attachments.Add attachment
+            .Send
+        End With
+
+    ElseIf SupplierLanguage = "HU" Then
+        With OutlookMail
+            .To = Recipient
+            '.To = "csaba.csontos@haldex.com"
+            .Subject = "Backlog" & " " & BeszállítóMegnev & Date
+            .Body = hunbody
+            .Attachments.Add attachment
+            .Send
+        End With
+      End If
+
+Set OutlookMail = Nothing
+Set OutlookApp = Nothing
+End Sub
+
