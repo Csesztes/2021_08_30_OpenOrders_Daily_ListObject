@@ -1,0 +1,124 @@
+Option Explicit
+
+Public Sub CommandButton1_Click()
+Call Create_SINGLE_XLS
+End Sub
+
+Public Sub Create_SINGLE_XLS()
+Application.DisplayAlerts = False
+Application.ScreenUpdating = False
+
+Dim besz As Long
+besz = Sheet2.Range("E1").Value
+
+Dim OldWs As Worksheet
+Set OldWs = ThisWorkbook.Sheets("OpenOrders")
+
+Dim NewWB As Workbook
+Set NewWB = Workbooks.Add: NewWB.SaveAs ("C:\Users\cscsontos\Desktop\DATABASE_SETUP\DAILY_OPEN_ORDERS\XLS_Export_Rendeléshez\" & besz & ".xls")
+
+Dim NewWs As Worksheet
+Set NewWs = NewWB.Sheets(1)
+
+Dim lastrow As Long
+lastrow = NewWs.UsedRange.Rows.Count
+
+With OldWs
+    .ListObjects("össz").HeaderRowRange.AutoFilter Field:=3, Criteria1:=besz
+    .ListObjects("össz").HeaderRowRange.Copy Destination:=NewWs.Range("A" & lastrow)
+    .ListObjects("össz").DataBodyRange.Copy Destination:=NewWs.Range("A" & lastrow + 1)
+End With
+
+With NewWs
+    .Name = besz
+    .Tab.Color = VBA.ColorConstants.vbRed
+    .Range("O:X").Delete
+    .UsedRange.EntireColumn.AutoFit
+
+    Dim i As Long
+    lastrow = .UsedRange.Rows.Count
+    For i = 2 To lastrow Step 1
+        If .Range("A" & i).Value = "BACKLOG" Then
+            .Range("A" & i, "N" & i).Interior.Color = VBA.ColorConstants.vbRed
+        ElseIf .Range("B" & i).Value = "Firmed" Then
+            .Range("A" & i, "N" & i).Interior.Color = VBA.ColorConstants.vbYellow
+        End If
+    Next i
+End With
+
+NewWB.Close True
+
+OldWs.ListObjects("össz").HeaderRowRange.AutoFilter
+OldWs.ListObjects("össz").HeaderRowRange.AutoFilter
+
+Set OldWs = Nothing
+Set NewWB = Nothing
+Set NewWs = Nothing
+
+Application.DisplayAlerts = True
+Application.ScreenUpdating = True
+End Sub
+
+Public Sub Create_MULTIPLE_XLS()
+Application.DisplayAlerts = False
+Application.ScreenUpdating = False
+
+Dim answer As VbMsgBoxResult
+answer = MsgBox("Do you want to create multiple Xls files?", vbYesNo + vbInformation, "Confirm")
+
+If answer = vbYes Then
+    Dim i As Long
+    Dim lastrow As Long
+    lastrow = Sheet3.Range("A" & Rows.Count).End(xlUp).Row
+    
+    For i = 2 To lastrow Step 1
+        Sheet2.Range("E1").Value = Sheet3.Range("A" & i).Value
+        Call Create_SINGLE_XLS
+    Next i
+    MsgBox "Script is finished.", vbInformation
+    
+    Application.DisplayAlerts = True
+    Application.ScreenUpdating = True
+Else
+    MsgBox "Script is terminated."
+End If
+End Sub
+
+Private Sub CommandButton2_Click()
+Call FillBacklogAndStatusFields
+End Sub
+
+Private Sub CommandButton3_Click()
+Call Create_MULTIPLE_XLS
+End Sub
+
+Private Sub CommandButton4_Click()
+CreateBacklogFolder
+End Sub
+
+Private Sub CommandButton5_Click()
+MassCreateBacklogXLS
+End Sub
+
+Public Sub FillBacklogAndStatusFields()
+Application.ScreenUpdating = False
+Dim i As Long
+Dim lastrow As Long
+lastrow = Sheet2.UsedRange.Rows.Count
+Sheet2.Range("B3", "C" & lastrow).ClearContents
+
+For i = 3 To lastrow Step 1
+    If Sheet2.Range("M" & i).Value < Date Then
+        Sheet2.Range("B" & i).Value = "BACKLOG"
+    Else
+        Sheet2.Range("B" & i).Value = "Order"
+    End If
+    
+    If Date + Sheet2.Range("O" & i).Value >= Sheet2.Range("M" & i).Value Then
+        Sheet2.Range("C" & i).Value = "Firmed"
+    Else
+       Sheet2.Range("C" & i).Value = "Forecast"
+    End If
+Next i
+Application.ScreenUpdating = True
+End Sub
